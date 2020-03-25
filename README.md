@@ -7,7 +7,7 @@ Evaluar l'evolució de l'estimació de la taxa de mortalitat (letalitat) en caso
 
 ## 2. Mètode
 
-- Dades diaries de casos confirmats de COVID-19 i mortalitat acumulada diaria per Comunitats autonomes
+- Dades diaries de casos confirmats de COVID-19 i mortalitat acumulada diaria per Comunitats autònomes
 - Font: Repositori de Joe Brew actualitzat amb dades del ministeri
 - S'inicia la serie fins que no han passat 7 dies per tenir casos potencials de mortalitat.
 - No s'han considerat retards per al càlcul. O sigui la població a risc és la població acumulada contagiada en cada moment que es fa el càlcul. 
