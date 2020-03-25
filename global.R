@@ -1,9 +1,10 @@
 
 # Actualitzar excel amb dades de Ministeri 
 
+
 baixar_dades_ministeri<-function(num_actualitzacio="54") {
 
-  # num_actualitzacio="54"
+  # num_actualitzacio="55"
 
   location <- paste0("https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov-China/documentos/Actualizacion_",num_actualitzacio,"_COVID-19.pdf")
   dades_pdf<-pdf_text(location)
@@ -11,10 +12,10 @@ baixar_dades_ministeri<-function(num_actualitzacio="54") {
   # Extreure taula
   dades<- 
     dades_pdf[1] %>% 
-    read_lines(skip = 15,n_max = 20) %>% 
+    read_lines(skip = 20,n_max = 19) %>% 
     paste(collapse = '\n') %>%    # recombine
-    read_fwf(fwf_empty(.))  %>%    # read as fixed-width file
-    tail(-1) 
+    read_fwf(fwf_empty(.))     # read as fixed-width file
+    
 
   # Elimino punt y canvi coma per punt transformo a numeric
   dades<-dades %>% 
@@ -23,7 +24,7 @@ baixar_dades_ministeri<-function(num_actualitzacio="54") {
     mutate_at(-1, parse_number)
 
   # Noms de variables
-  colnames(dades)<-c("CCAA", "conf", "IA14d", "Hospitalizados","UCI","Fallecidos","Curados","Nuevos")
+  colnames(dades)<-c("CCAA", "conf", "IA14d", "Hospitalizados","UCI","Fallecidos","Curados") 
 
   # Estandaritzar noms de ccaa 
   dades<-dades %>% mutate(CCAA=case_when(CCAA=="Castilla La Mancha"~"CLM",

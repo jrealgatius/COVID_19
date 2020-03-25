@@ -1,7 +1,7 @@
 ---
 title: "Coronavirus (COVID-19) Mortality Rate"
 author: "Jordi Real"
-website: "https://github.com/USR-DAPCAT/"
+website: "https://github.com/jrealgatius/"
 
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 
@@ -48,6 +48,8 @@ library(ggplot2)
 library(plotly)
 library(pdftools)
 library(tidyverse)
+library(scales)
+
 
 source("global.R")
 
@@ -63,7 +65,7 @@ url <- 'https://docs.google.com/spreadsheets/d/15UJWpsW6G7sEImE8aiQ5JrLCtCnbprpz
 esp_df <- gsheet::gsheet2tbl(url)
 
 # Baixar i actualitzar ultimes dades del ministeri si son mes actuals   ------------------
-dades_noves<-baixar_dades_ministeri("54")
+dades_noves<-baixar_dades_ministeri("55")
 
 if (max(dades_noves$date)>max(esp_df$date)) esp_df<-esp_df %>% bind_rows(dades_noves)
 
@@ -98,10 +100,12 @@ plot_letalitat<-function(dt=dt_overall){
     geom_ribbon(data=dt,aes(ymin=Lower,ymax=Upper),fill="grey",alpha=0.3,show.legend = F) +
     # theme_light()+
     # theme(legend.position="bottom")+
-    ylab("Tasa (%) de mortalidad")+
-    xlab("Fecha")
-    
-
+    ylab("Tasa")+
+    xlab("Fecha")+
+    scale_x_date(date_breaks= "4 days",labels=date_format("%d/%m"))+
+    theme(plot.subtitle = element_text(size=9))
+  
+  
   # Afegir linea horitzontal amb dades conegudes
   # 3.4% Mortality Rate estimate by the WHO as of March 3
   # Mortality rate in Wuhan was 4.9%.
@@ -114,15 +118,15 @@ plot_letalitat<-function(dt=dt_overall){
   ultima_let<-round(ultima_let,digits=2)
   
   figura+
-    geom_hline(aes(yintercept=max(letalitat),linetype=paste0("1. ", comunitat," (",ultima_let,"%)")),color = "red",size=1.15) +
-    geom_hline(aes(yintercept=0.049, linetype="2. Wuhan (4.9%)"),color = "blue",size=1.15) + 
-    geom_hline(aes(yintercept=0.034, linetype="3. OMS (3.4%)"),color = "black",size=1.15)+
-    scale_linetype_manual(name = "Tasa de mortalidad según:", values = c(2, 2,2),
+    geom_hline(aes(yintercept=max(letalitat),linetype=paste0("1. ", comunitat," (",ultima_let,"%)")),color = "red",size=1) +
+    geom_hline(aes(yintercept=0.049, linetype="2. Wuhan (4.9%)"),color = "blue",size=1) + 
+    geom_hline(aes(yintercept=0.034, linetype="3. OMS (3.4%)"),color = "black",size=1)+
+    scale_linetype_manual(name = "Tasa de mortalidad en:", values = c(2, 2,2),
                           guide = guide_legend(override.aes = list(color = c("red", "blue", "black"))))  +
     scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.08,by=0.01),limits = c(0,y_maxim)) +
-    labs(title = paste0("Evolución de la tasa de mortalidad (letalidad) por COVID-19 en ",comunitat) , 
-         subtitle = "Estimación según número de muertes acumuladas en población confirmada por COVID-19",
-         caption = "@JordirealReal | https://github.com/jrealgatius ")
+    labs(title = paste0("Tasa de mortalidad (letalidad) por COVID-19 en ",comunitat) , 
+         subtitle = "Cálculo realizado según muertes acumuladas por día sobre la población a riesgo confirmada por COVID-19",
+         caption = "@JordirealReal | https://github.com/jrealgatius/COVID_19")
    
   # https://www.worldometers.info/coronavirus/coronavirus-death-rate/
   
@@ -143,6 +147,7 @@ dt_overall <- esp_df %>%
   mutate(ccaa="España") 
 
 
+
 ```
 
 ## 4. Resultats
@@ -154,10 +159,10 @@ plot_esp<-plot_letalitat()
 plot_esp
 
 ggsave("plot_esp.jpg",device="jpeg")
-
-
-# plots per Comunitats Autonomes
-
+# 
+# 
+# # plots per Comunitats Autonomes
+# 
 esp_df$ccaa %>% unique() %>%
   map(~filter(esp_df,ccaa==.x)) %>%
   map(~plot_letalitat(.x))
@@ -167,10 +172,10 @@ esp_df$ccaa %>% unique() %>%
 ```
 
 
-```{r mes_calculs, include=F}
+```{r mes_calculs, echo=F}
 # Mes calculs --
 
-dades<-preparar_dades(dades)
+dades<-preparar_dades(dt_overall)
 
 # Mortalitat diaria / Nous diaris  ---------------
 dades<-dades %>% mutate(new_confirmed=cases-lag(cases),
