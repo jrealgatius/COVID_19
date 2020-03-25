@@ -1,0 +1,213 @@
+---
+title: "Coronavirus (COVID-19) Mortality Rate"
+author: "Jordi Real"
+website: "https://github.com/USR-DAPCAT/"
+
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    fig_caption: true
+    css: logos_css/usr_styles.css
+  pdf_document: default
+  word_document: default
+
+---
+
+****
+
+
+## 1. Objectius
+
+Evaluar l'evolució de l'estimació de la taxa de mortalitat (letalitat) en casos confirmats de COVID-19 a Espanya
+
+## 2. Mètodes
+
+Dades diaries de casos confirmats de COVID-19 y mortalitat acumulada diaria per Comunitats autonomes
+Font: Repositori de Joe Brew actualitzat amb dades del ministeri
+S'inicia la serie fins que no han passat 7 dies per tenir casos potencials de mortalitat.
+No s'han considerat retards per al calcul. O sigui la població a risk es la població acumulada fins a cada moment que es fa el càlcul. 
+Anàlisis descriptiva gràfica de la evoluació de la actualització de la taxa de mortalitat. S'ha inclós una banda de confiança al 95% segons el mètode exacte de la binomial. 
+
+Es presenten figures de l'evolució diaria globalment i per comunitat autònoma
+
+## 3. Refencies
+
+https://www.worldometers.info/coronavirus/coronavirus-death-rate/ 
+
+https://smw.ch/article/doi/smw.2020.20203
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, include=F,size="huge")
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(pdftools)
+library(tidyverse)
+
+source("global.R")
+
+#   template: template.html
+```
+
+
+```{r lectura_dades}
+
+# Get most recent Spanish ministry data  --------------
+library(gsheet)
+url <- 'https://docs.google.com/spreadsheets/d/15UJWpsW6G7sEImE8aiQ5JrLCtCnbprpztfoEwyTNTEY/edit#gid=810081118'
+esp_df <- gsheet::gsheet2tbl(url)
+
+# Baixar i actualitzar ultimes dades del ministeri si son mes actuals   ------------------
+dades_noves<-baixar_dades_ministeri("54")
+
+if (max(dades_noves$date)>max(esp_df$date)) esp_df<-esp_df %>% bind_rows(dades_noves)
+
+```
+
+
+```{r funcions}
+# Preparar dades 
+preparar_dades<-function(dt) {
+  # Arreglar valors 0 intercalats  -----------
+  dt<-dt %>% 
+    mutate (deaths=ifelse(deaths==0,NA,deaths)) %>% tidyr::fill(deaths) %>% mutate (deaths=ifelse(is.na(deaths),0,deaths))
+  # Afegir IC95% segons aprox Binomial Hmisc
+  dt_ICs<-Hmisc::binconf(dt$deaths, dt$cases) %>% as_tibble() 
+  dt<-dt %>% bind_cols(dt_ICs) %>% dplyr::rename(letalitat=PointEst)
+  # Afafo base de dades a partir del 7er dia  
+  dt<-dt %>% mutate(dia=row_number()-1) %>% filter(dia>=7)  
+  }
+
+
+plot_letalitat<-function(dt=dt_overall){
+
+  comunitat<-dt$ccaa[1]
+  
+  dt<-preparar_dades(dt)
+
+  theme_set(theme_light() + theme(legend.position = 'bottom'))
+  
+  figura<-
+    ggplot(dt,aes(x =date,y =letalitat))+ 
+    geom_point(color="red",size=2) +
+    geom_ribbon(data=dt,aes(ymin=Lower,ymax=Upper),fill="grey",alpha=0.3,show.legend = F) +
+    # theme_light()+
+    # theme(legend.position="bottom")+
+    ylab("Tasa (%) de mortalidad")+
+    xlab("Fecha")
+    
+
+  # Afegir linea horitzontal amb dades conegudes
+  # 3.4% Mortality Rate estimate by the WHO as of March 3
+  # Mortality rate in Wuhan was 4.9%.
+  # Mortality rate in the Hubei Province was 3.1%.
+
+  # Si maxima taxa superar el limit de 9% ampliar 
+  if (max(dt$letalitat)>0.08) y_maxim=max(dt$letalitat) else y_maxim=0.08
+  
+  ultima_let<-dt$letalitat %>% tail(1)*100 
+  ultima_let<-round(ultima_let,digits=2)
+  
+  figura+
+    geom_hline(aes(yintercept=max(letalitat),linetype=paste0("1. ", comunitat," (",ultima_let,"%)")),color = "red",size=1.15) +
+    geom_hline(aes(yintercept=0.049, linetype="2. Wuhan (4.9%)"),color = "blue",size=1.15) + 
+    geom_hline(aes(yintercept=0.034, linetype="3. OMS (3.4%)"),color = "black",size=1.15)+
+    scale_linetype_manual(name = "Tasa de mortalidad según:", values = c(2, 2,2),
+                          guide = guide_legend(override.aes = list(color = c("red", "blue", "black"))))  +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.08,by=0.01),limits = c(0,y_maxim)) +
+    labs(title = paste0("Evolución de la tasa de mortalidad (letalidad) por COVID-19 en ",comunitat) , 
+         subtitle = "Estimación según número de muertes acumuladas en población confirmada por COVID-19",
+         caption = "@JordirealReal | https://github.com/jrealgatius ")
+   
+  # https://www.worldometers.info/coronavirus/coronavirus-death-rate/
+  
+  }
+
+
+```
+
+
+```{r preparar_dades, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Agregar Espanya --------------------- 
+
+dt_overall <- esp_df %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases, na.rm = TRUE),
+            deaths  = sum(deaths, na.rm = TRUE)) %>% 
+  mutate(ccaa="España") 
+
+
+```
+
+## 4. Resultats
+
+```{r plots, message=FALSE, warning=FALSE, include=T}
+
+plot_esp<-plot_letalitat()
+
+plot_esp
+
+ggsave("plot_esp.jpg",device="jpeg")
+
+
+# plots per Comunitats Autonomes
+
+esp_df$ccaa %>% unique() %>%
+  map(~filter(esp_df,ccaa==.x)) %>%
+  map(~plot_letalitat(.x))
+
+
+
+```
+
+
+```{r mes_calculs, include=F}
+# Mes calculs --
+
+dades<-preparar_dades(dades)
+
+# Mortalitat diaria / Nous diaris  ---------------
+dades<-dades %>% mutate(new_confirmed=cases-lag(cases),
+                                  new_deaths=deaths-lag(deaths),
+                                  new_confirmed=if_else(is.na(new_confirmed),0,new_confirmed),
+                                  new_deaths=if_else(is.na(new_deaths),0,new_deaths))
+                      
+# Població a risk per dia  (Eliminant morts)
+dades<-dades %>% mutate(
+  Prisk=cumsum(new_confirmed-new_deaths),
+  Prisk=Prisk+nth(cases,1))
+
+# Letalitat retardada
+dades<-dades %>% mutate(
+  letalitat_dia=(new_deaths/lag(Prisk,1))*100,
+  num=row_number(),
+  letalitat_dia_retard=ifelse(n()-num<7,(new_deaths/lag(Prisk,7))*100,NA))
+
+# Letalitat retard 7 dies
+dades<-dades %>% mutate(let_cum=(deaths/lag(Prisk,0))*100) 
+
+# 
+ggplot2:: ggplot(dades,aes(x =date,y =letalitat))+
+  geom_point(aes(date, letalitat),color="red") +
+  geom_ribbon(data=dades,aes(ymin=Lower,ymax=Upper),alpha=0.3)+
+  geom_line(aes(date, letalitat_dia),color="black") +
+  geom_line(aes(date, letalitat_dia_retard),color="blue") +
+  geom_line(aes(date, let_cum),color="green") 
+
+```
+
+
+&nbsp;
+<hr />
+<p style="text-align: center;">A work by $Jordi Real$ </a></p>
+<p style="text-align: center;">$Llepali System$ </a></p>
+<p style="text-align: center;"><span style="color: #808080;"><em><https://github.com/jrealgatius/></em></span></p>
+
+
+

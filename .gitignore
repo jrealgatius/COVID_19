@@ -5,6 +5,8 @@
 # Session Data files
 .RData
 
+.jpg
+
 # User-specific files
 .Ruserdata
 
