@@ -146,6 +146,13 @@ dt_overall <- esp_df %>%
             deaths  = sum(deaths, na.rm = TRUE)) %>% 
   mutate(ccaa="España") 
 
+# Resta d'españa menys madrid
+dt_resta <- esp_df %>% 
+  filter(ccaa!="Madrid") %>% 
+  group_by(date) %>%
+  summarise(cases = sum(cases, na.rm = TRUE),
+            deaths  = sum(deaths, na.rm = TRUE)) %>% 
+  mutate(ccaa="Resta") 
 
 
 ```
@@ -158,15 +165,57 @@ plot_esp<-plot_letalitat()
 
 plot_esp
 
-ggsave("plot_esp.jpg",device="jpeg")
+ggsave("plot_esp.png",device="png")
 # 
-# 
+ 
 # # plots per Comunitats Autonomes
 # 
-esp_df$ccaa %>% unique() %>%
+list_plots<-
+  esp_df$ccaa %>% unique() %>%
   map(~filter(esp_df,ccaa==.x)) %>%
   map(~plot_letalitat(.x))
 
+# Posar noms a llista de plots 
+names(list_plots)<-esp_df$ccaa %>% unique() %>% stringr::str_trim(side="both")
+
+# Salvar llista de gràfics 
+list(list_plots, names(list_plots)) %>% 
+        pwalk( ~ ggsave(plot=.x,filename=paste0(.y,".png"),device = "png") )
+
+list_plots
+
+
+
+
+```
+
+## Comparativa Madrid la resta
+
+```{r}
+plot_resta<-plot_letalitat(dt_resta)
+plot_resta
+
+plot_Madrid<-list_plots$Madrid
+
+# Fer un panel plot 
+library(grid)
+library(gridExtra)
+gridExtra::grid.arrange(plot_resta,list_plots$Madrid,ncol=2,
+                        top = textGrob("Daily QC: Blue",gp=gpar(fontsize=20,font=3)),
+                        common.legend = TRUE, legend="bottom")
+
+
+plot_resta<-plot_resta + 
+  labs(title = "Resto de España", subtitle = "",caption = "") + 
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))
+
+plot_Madrid<-plot_Madrid + 
+  labs(title = "Madrid", subtitle ="",caption = "") + 
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))
+
+library(ggpubr)
+ggarrange(plot_Madrid,plot_resta,ncol=2, 
+          common.legend = TRUE, legend="bottom")
 
 
 ```
