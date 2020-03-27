@@ -49,6 +49,9 @@ library(plotly)
 library(pdftools)
 library(tidyverse)
 library(scales)
+library(grid)
+library(gridExtra)
+library(ggpubr)
 
 
 source("global.R")
@@ -66,8 +69,11 @@ esp_df <- gsheet::gsheet2tbl(url)
 
 # Baixar i actualitzar ultimes dades del ministeri si son mes actuals   ------------------
 dades_noves<-baixar_dades_ministeri("55")
-
 if (max(dades_noves$date)>max(esp_df$date)) esp_df<-esp_df %>% bind_rows(dades_noves)
+
+# Baixar datahub
+# source("lectura_datahub.R")
+
 
 ```
 
@@ -86,7 +92,7 @@ preparar_dades<-function(dt) {
   }
 
 
-plot_letalitat<-function(dt=dt_overall){
+plot_letalitat<-function(dt=dt_overall,titles=T){
 
   comunitat<-dt$ccaa[1]
   
@@ -117,17 +123,25 @@ plot_letalitat<-function(dt=dt_overall){
   ultima_let<-dt$letalitat %>% tail(1)*100 
   ultima_let<-round(ultima_let,digits=2)
   
-  figura+
+  figura<-
+    figura+
     geom_hline(aes(yintercept=max(letalitat),linetype=paste0("1. ", comunitat," (",ultima_let,"%)")),color = "red",size=1) +
     geom_hline(aes(yintercept=0.049, linetype="2. Wuhan (4.9%)"),color = "blue",size=1) + 
     geom_hline(aes(yintercept=0.034, linetype="3. OMS (3.4%)"),color = "black",size=1)+
     scale_linetype_manual(name = "Tasa de mortalidad en:", values = c(2, 2,2),
                           guide = guide_legend(override.aes = list(color = c("red", "blue", "black"))))  +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.08,by=0.01),limits = c(0,y_maxim)) +
-    labs(title = paste0("Tasa de mortalidad (letalidad) por COVID-19 en ",comunitat) , 
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.08,by=0.01),limits = c(0,y_maxim)) 
+  
+  
+  if (titles) {
+    figura<-figura +
+      labs(title = paste0("Tasa de mortalidad (letalidad) por COVID-19 en ",comunitat) , 
          subtitle = "Cálculo realizado según muertes acumuladas por día sobre la población a riesgo confirmada por COVID-19",
-         caption = "@JordirealReal | https://github.com/jrealgatius/COVID_19")
-   
+         caption = "@JordirealReal | https://github.com/jrealgatius/COVID_19") 
+    }
+  
+   figura
+  
   # https://www.worldometers.info/coronavirus/coronavirus-death-rate/
   
   }
@@ -160,65 +174,108 @@ dt_resta <- esp_df %>%
 ## 4. Resultats
 
 ```{r plots, message=FALSE, warning=FALSE, include=T}
-
 plot_esp<-plot_letalitat()
 
 plot_esp
 
-ggsave("plot_esp.png",device="png")
+ggsave("figures/plot_esp.png",device="png")
 # 
  
 # # plots per Comunitats Autonomes
-# 
+
 list_plots<-
   esp_df$ccaa %>% unique() %>%
   map(~filter(esp_df,ccaa==.x)) %>%
   map(~plot_letalitat(.x))
+
 
 # Posar noms a llista de plots 
 names(list_plots)<-esp_df$ccaa %>% unique() %>% stringr::str_trim(side="both")
 
 # Salvar llista de gràfics 
 list(list_plots, names(list_plots)) %>% 
-        pwalk( ~ ggsave(plot=.x,filename=paste0(.y,".png"),device = "png") )
+        pwalk( ~ ggsave(plot=.x,filename=paste0("figures/",.y,".png"),device = "png") )
 
 list_plots
 
-
-
-
 ```
 
-## Comparativa Madrid la resta
 
-```{r}
+
+
+## Comparativa Madrid vs resta
+
+```{r, warning=F, message=F, include=T}
 plot_resta<-plot_letalitat(dt_resta)
-plot_resta
-
 plot_Madrid<-list_plots$Madrid
 
+# REcuperar constants
+let_resta<-preparar_dades(dt_resta)$letalitat %>% tail(1)*100 
+let_resta<-round(let_resta,1)
+
+let_madrid<-esp_df %>% filter((ccaa=="Madrid")) %>% preparar_dades() %>% pull(letalitat) %>% tail(1)*100 
+let_madrid<-round(let_madrid,1)
+
+data_ultima<-esp_df$date %>% tail(1) 
+
 # Fer un panel plot 
-library(grid)
-library(gridExtra)
-gridExtra::grid.arrange(plot_resta,list_plots$Madrid,ncol=2,
-                        top = textGrob("Daily QC: Blue",gp=gpar(fontsize=20,font=3)),
-                        common.legend = TRUE, legend="bottom")
+plot_resta<-
+  plot_resta + 
+  labs(title = "Mortalidad en Resto de España", subtitle = "") + 
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))+
+  theme(legend.position="none") + 
+  annotate("text",x=min(dt_resta$date)+9,y=0.13 ,label = "CFR en Wuhan: 4.9%",colour="blue",size=3,hjust = 0)+
+  annotate("text",x=min(dt_resta$date)+9,y=0.12 ,label = "CFR según OMS 3 de Marzo: 3.4%", colour="black",size=3,hjust = 0) +
+  annotate("text",x=min(dt_resta$date)+9,y=0.14 ,label = paste0("CFR Resto España actual:",let_resta,"%"), colour="red",size=4,hjust = 0)
+
+  
+
+plot_Madrid<-
+  plot_Madrid + 
+  labs(title = "Mortalidad por COVID-19 Madrid", subtitle ="Fallecidos/confirmados o Case Fataly Ratio (CFR)",caption = paste0("Datos actualizados: ",data_ultima)) + 
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))+
+  theme(legend.position="none") + 
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))+
+  theme(legend.position="none") + 
+  annotate("text",x=min(dt_resta$date)+9,y=0.14 ,label = paste0("Madrid actual : ",let_madrid,"%"), colour="red",size=4,hjust = 0)
 
 
-plot_resta<-plot_resta + 
-  labs(title = "Resto de España", subtitle = "",caption = "") + 
-  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))
+  # annotate("text",x=min(dt_resta$date)+9,y=0.135 ,label = "Wuhan: 4.9%",colour="blue",size=3,hjust = 0)+
+  # annotate("text",x=min(dt_resta$date)+9,y=0.13 ,label = "OMS 3 de marzo: 3.4%", colour="black",size=3,hjust = 0) +
+  
+  
 
-plot_Madrid<-plot_Madrid + 
-  labs(title = "Madrid", subtitle ="",caption = "") + 
-  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.14,by=0.02),limits = c(0,0.14))
+plot_rest<-ggarrange(plot_Madrid,plot_resta,ncol=2, common.legend = F)
+plot_rest
 
-library(ggpubr)
-ggarrange(plot_Madrid,plot_resta,ncol=2, 
-          common.legend = TRUE, legend="bottom")
+ggsave("figures/plot_rest.png",device="png") 
 
 
 ```
+
+
+## Panel plot 
+
+```{r panelplot, message=FALSE, warning=FALSE, include=T}
+
+list_plots<-
+  esp_df$ccaa %>% unique() %>%
+  map(~filter(esp_df,ccaa==.x)) %>%
+  map(~plot_letalitat(.x,titles = F))
+
+
+ls_plot<-list_plots[1:4]
+
+library(gridExtra)
+n <- length(ls_plot)
+nCol <- floor(sqrt(n))
+
+do.call("grid.arrange", c(ls_plot, ncol=nCol))
+
+
+
+```
+
 
 
 ```{r mes_calculs, echo=F}

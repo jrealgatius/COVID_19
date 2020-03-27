@@ -26,20 +26,49 @@ https://smw.ch/article/doi/smw.2020.20203
 
 ### Globals
 
-![Figura 1](plot_esp.png)
+![Figura 1](figures/plot_esp.png)
 
 ### Per comunitats
 
-![Figura 2](Madrid.png)
+![Figura 2](figures/Madrid.png)
 
-![Figura 3](Cataluña.png)
+![Figura 3](figures/Cataluña.png)
 
-![Figura 4](C. Valenciana.png)
+![Figura 4](figures/C. Valenciana.png)
 
-![Figura 5](Andalucía.png)
+![Figura 5](figures/Andalucía.png)
 
-![Figura 6](Galicia.png)
+![Figura 6](figures/Galicia.png)
 
+![Figura 7](figures/Aragón.png)
+
+![Figura 8](figures/Asturias.png)
+
+![Figura 9](figures/Baleares.png)
+
+![Figura 10](figures/Canarias.png)
+
+![Figura 11](figures/Cantabria.png)
+
+![Figura 12](figures/Ceuta.png)
+
+![Figura 13](figures/CLM.png)
+
+![Figura 14](figures/CyL.png)
+
+![Figura 15](figures/Extremadura.png)
+
+![Figura 16](figures/La Rioja.png)
+
+![Figura 17](figures/País Vasco.png)
+
+![Figura 18](figures/Navarra.png)
+
+![Figura 19](figures/Melilla.png)
+
+### Comparativa Madrid la resta d'Espanya
+
+![Figura 20](figures/plot_rest.png)
 
 
 
