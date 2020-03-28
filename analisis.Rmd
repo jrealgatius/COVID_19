@@ -134,14 +134,13 @@ plot_letalitat<-function(dt=dt_overall,titles=T){
   
   
   if (titles) {
-    figura<-figura +
+    figura +
       labs(title = paste0("Tasa de mortalidad (letalidad) por COVID-19 en ",comunitat) , 
          subtitle = "Cálculo realizado según muertes acumuladas por día sobre la población a riesgo confirmada por COVID-19",
          caption = "@JordirealReal | https://github.com/jrealgatius/COVID_19") 
-    }
+    } else figura + labs(title = comunitat) 
   
-   figura
-  
+   
   # https://www.worldometers.info/coronavirus/coronavirus-death-rate/
   
   }
@@ -256,7 +255,7 @@ ggsave("figures/plot_rest.png",device="png")
 
 ## Panel plot 
 
-```{r panelplot, message=FALSE, warning=FALSE, include=T}
+```{r panelplot, message=FALSE, warning=FALSE, include=T, fig.height=12,fig.width=10}
 
 list_plots<-
   esp_df$ccaa %>% unique() %>%
@@ -264,13 +263,23 @@ list_plots<-
   map(~plot_letalitat(.x,titles = F))
 
 
-ls_plot<-list_plots[1:4]
+panels<-ggarrange(plotlist=list_plots, ncol = 2, nrow = 3, legend="none",label.x = 0,label.y = 0)
 
-library(gridExtra)
-n <- length(ls_plot)
-nCol <- floor(sqrt(n))
+panels$`1`
 
-do.call("grid.arrange", c(ls_plot, ncol=nCol))
+ggsave("figures/panel1.png",device="png")
+
+panels$`2`
+ggsave("figures/panel2.png",device="png")
+
+panels$`3`
+ggsave("figures/panel3.png",device="png")
+
+
+
+scale_linetype_manual(name = "Tasa de mortalidad en:", values = c(2, 2,2),
+                          guide = guide_legend(override.aes = list(color = c("red", "blue", "black"))))  +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 0.1), breaks = seq(0,0.08,by=0.01),limits = c(0,y_maxim)) 
 
 
 
